@@ -1,6 +1,9 @@
 <?php
 
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Laravel\Fortify\Features;
+
+uses(DatabaseTransactions::class);
 
 beforeEach(function () {
     $this->skipUnlessFortifyHas(Features::registration());
