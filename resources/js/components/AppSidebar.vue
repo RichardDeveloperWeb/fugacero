@@ -1,6 +1,15 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
-import { BookOpen, FolderGit2, LayoutGrid } from '@lucide/vue';
+import { Link, usePage } from '@inertiajs/vue3';
+import {
+    BookOpen,
+    FolderGit2,
+    LayoutGrid,
+    Receipt,
+    ShieldCheck,
+    Tags,
+    Wallet,
+} from '@lucide/vue';
+import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -15,15 +24,46 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
-import type { NavItem } from '@/types';
+import { dashboard as adminDashboard } from '@/routes/admin';
+import { index as budgetsIndex } from '@/routes/budgets';
+import { index as categoriesIndex } from '@/routes/categories';
+import { index as expensesIndex } from '@/routes/expenses';
+import type { NavItem, User } from '@/types';
 
-const mainNavItems: NavItem[] = [
+const page = usePage<{ auth: { user: User } }>();
+const isAdmin = computed(() => page.props.auth.user.roles.includes('admin'));
+
+const mainNavItems = computed<NavItem[]>(() => [
     {
-        title: 'Panel',
+        title: 'Inicio',
         href: dashboard(),
         icon: LayoutGrid,
     },
-];
+    ...(isAdmin.value
+        ? [
+              {
+                  title: 'Admin',
+                  href: adminDashboard(),
+                  icon: ShieldCheck,
+              },
+          ]
+        : []),
+    {
+        title: 'Categorías',
+        href: categoriesIndex(),
+        icon: Tags,
+    },
+    {
+        title: 'Presupuestos',
+        href: budgetsIndex(),
+        icon: Wallet,
+    },
+    {
+        title: 'Gastos',
+        href: expensesIndex(),
+        icon: Receipt,
+    },
+]);
 
 const footerNavItems: NavItem[] = [
     {
