@@ -1,17 +1,8 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import {
-    BookOpen,
-    FolderGit2,
-    LayoutGrid,
-    Receipt,
-    ShieldCheck,
-    Tags,
-    Wallet,
-} from '@lucide/vue';
+import { LayoutGrid, Receipt, ShieldCheck, Tags, Wallet } from '@lucide/vue';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
-import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
 import {
@@ -64,19 +55,6 @@ const mainNavItems = computed<NavItem[]>(() => [
         icon: Receipt,
     },
 ]);
-
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repositorio',
-        href: 'https://github.com/laravel/vue-starter-kit',
-        icon: FolderGit2,
-    },
-    {
-        title: 'Documentación',
-        href: 'https://laravel.com/docs/starter-kits#vue',
-        icon: BookOpen,
-    },
-];
 </script>
 
 <template>
@@ -98,7 +76,6 @@ const footerNavItems: NavItem[] = [
         </SidebarContent>
 
         <SidebarFooter>
-            <NavFooter :items="footerNavItems" />
             <NavUser />
         </SidebarFooter>
     </Sidebar>

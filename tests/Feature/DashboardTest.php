@@ -28,6 +28,22 @@ test('authenticated users can visit the dashboard', function () {
             ->where('auth.user.roles', []));
 });
 
+test('the dashboard exposes visible categories for quick expense creation', function () {
+    $user = User::factory()->create();
+    $shared = Category::factory()->default()->create(['name' => 'Transporte']);
+    $own = Category::factory()->for($user)->create(['name' => 'Comida']);
+    Category::factory()->for(User::factory())->create(['name' => 'Ajenos']);
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Dashboard')
+            ->has('categories', 2)
+            ->where('categories.0.id', $shared->id)
+            ->where('categories.1.id', $own->id));
+});
+
 test('the dashboard only shows the authenticated user current month stats', function () {
     Date::setTestNow('2026-11-15 12:00:00');
 

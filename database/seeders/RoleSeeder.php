@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -17,7 +18,7 @@ class RoleSeeder extends Seeder
     ];
 
     /**
-     * Seed the application roles and permissions.
+     * Seed the application roles, permissions and user assignments.
      */
     public function run(): void
     {
@@ -36,7 +37,21 @@ class RoleSeeder extends Seeder
             ]))
             ->all();
 
-        Role::findByName('admin', 'web')->syncPermissions($permissions);
+        $adminRole = Role::findByName('admin', 'web');
+        $userRole = Role::findByName('user', 'web');
+
+        $adminRole->syncPermissions($permissions);
+        $userRole->syncPermissions([]);
+
+        User::query()
+            ->where('email', 'admin@gmail.com')
+            ->get()
+            ->each(fn (User $user) => $user->assignRole($adminRole));
+
+        User::query()
+            ->where('email', '!=', 'admin@gmail.com')
+            ->get()
+            ->each(fn (User $user) => $user->assignRole($userRole));
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
     }

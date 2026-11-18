@@ -12,6 +12,9 @@ Route::inertia('/', 'Welcome')->name('home');
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+    Route::post('dashboard/expenses', [ExpenseController::class, 'storeFromDashboard'])
+        ->name('dashboard.expenses.store');
+
     Route::get('admin', [AdminDashboardController::class, 'index'])
         ->middleware('role:admin')
         ->name('admin.dashboard');

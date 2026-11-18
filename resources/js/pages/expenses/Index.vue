@@ -22,6 +22,7 @@ import {
 } from '@lucide/vue';
 import { computed, ref, watch, type Component } from 'vue';
 import ExpenseController from '@/actions/App/Http/Controllers/ExpenseController';
+import ExpenseFormFields from '@/components/ExpenseFormFields.vue';
 import Heading from '@/components/Heading.vue';
 import {
     AlertDialog,
@@ -54,12 +55,6 @@ import {
     EmptyMedia,
     EmptyTitle,
 } from '@/components/ui/empty';
-import {
-    Field,
-    FieldError,
-    FieldGroup,
-    FieldLabel,
-} from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import {
     Table,
@@ -328,114 +323,15 @@ function deleteExpense(expense: Expense): void {
                         @success="dialogOpen = false"
                         v-slot="{ errors, processing }"
                     >
-                        <FieldGroup>
-                            <Field :data-invalid="!!errors.description">
-                                <FieldLabel for="expense-description">
-                                    Descripción
-                                </FieldLabel>
-                                <Input
-                                    id="expense-description"
-                                    v-model="formDescription"
-                                    name="description"
-                                    placeholder="Ej. Desayuno"
-                                    :aria-invalid="!!errors.description"
-                                    v-focus
-                                />
-                                <FieldError v-if="errors.description">
-                                    {{ errors.description }}
-                                </FieldError>
-                            </Field>
-
-                            <div class="grid gap-4 sm:grid-cols-2">
-                                <Field :data-invalid="!!errors.amount">
-                                    <FieldLabel for="expense-amount">
-                                        Monto
-                                    </FieldLabel>
-                                    <Input
-                                        id="expense-amount"
-                                        v-model="formAmount"
-                                        name="amount"
-                                        type="number"
-                                        step="0.01"
-                                        min="0.01"
-                                        placeholder="0.00"
-                                        :aria-invalid="!!errors.amount"
-                                    />
-                                    <FieldError v-if="errors.amount">
-                                        {{ errors.amount }}
-                                    </FieldError>
-                                </Field>
-
-                                <Field :data-invalid="!!errors.spent_at">
-                                    <FieldLabel for="expense-spent-at">
-                                        Fecha
-                                    </FieldLabel>
-                                    <Input
-                                        id="expense-spent-at"
-                                        v-model="formSpentAt"
-                                        name="spent_at"
-                                        type="date"
-                                        :aria-invalid="!!errors.spent_at"
-                                    />
-                                    <FieldError v-if="errors.spent_at">
-                                        {{ errors.spent_at }}
-                                    </FieldError>
-                                </Field>
-                            </div>
-
-                            <div class="grid gap-4 sm:grid-cols-2">
-                                <Field :data-invalid="!!errors.type">
-                                    <FieldLabel for="expense-type">
-                                        Tipo
-                                    </FieldLabel>
-                                    <select
-                                        id="expense-type"
-                                        v-model="formType"
-                                        name="type"
-                                        :class="selectClass"
-                                        :aria-invalid="!!errors.type"
-                                    >
-                                        <option
-                                            v-for="option in typeOptions"
-                                            :key="option.value"
-                                            :value="option.value"
-                                        >
-                                            {{ option.label }}
-                                        </option>
-                                    </select>
-                                    <FieldError v-if="errors.type">
-                                        {{ errors.type }}
-                                    </FieldError>
-                                </Field>
-
-                                <Field :data-invalid="!!errors.category_id">
-                                    <FieldLabel for="expense-category">
-                                        Categoría
-                                    </FieldLabel>
-                                    <select
-                                        id="expense-category"
-                                        v-model="formCategoryId"
-                                        name="category_id"
-                                        :class="selectClass"
-                                        :aria-invalid="!!errors.category_id"
-                                    >
-                                        <option value="" disabled>
-                                            Selecciona una categoría
-                                        </option>
-                                        <option
-                                            v-for="category in categories"
-                                            :key="category.id"
-                                            :value="String(category.id)"
-                                        >
-                                            {{ category.name }}
-                                        </option>
-                                    </select>
-                                    <FieldError v-if="errors.category_id">
-                                        {{ errors.category_id }}
-                                    </FieldError>
-                                </Field>
-                            </div>
-                        </FieldGroup>
+                        <ExpenseFormFields
+                            v-model:description="formDescription"
+                            v-model:amount="formAmount"
+                            v-model:type="formType"
+                            v-model:category-id="formCategoryId"
+                            v-model:spent-at="formSpentAt"
+                            :categories="categories"
+                            :errors="errors"
+                        />
 
                         <DialogFooter>
                             <Button type="submit" :disabled="processing">

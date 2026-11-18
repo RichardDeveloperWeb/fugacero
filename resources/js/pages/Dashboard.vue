@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import {
-    ArrowRight,
     CarFront,
     Clapperboard,
     GraduationCap,
     HeartPulse,
     House,
+    Plus,
     Receipt,
     Repeat2,
     Shapes,
@@ -15,13 +15,14 @@ import {
     Wallet,
     Zap,
 } from '@lucide/vue';
-import { computed, type Component } from 'vue';
+import { computed, ref, type Component } from 'vue';
 import {
     CategoryBreakdownChart,
     ChartCard,
     MonthlyPaceChart,
     MonthlyTrendChart,
 } from '@/components/charts';
+import ExpenseQuickCreate from '@/components/ExpenseQuickCreate.vue';
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,8 +44,7 @@ import { useMoney } from '@/composables/useMoney';
 import { dashboard } from '@/routes';
 import { index as budgetsIndex } from '@/routes/budgets';
 import { index as categoriesIndex } from '@/routes/categories';
-import { index as expensesIndex } from '@/routes/expenses';
-import type { DashboardCharts, DashboardStats } from '@/types';
+import type { Category, DashboardCharts, DashboardStats } from '@/types';
 
 defineOptions({
     layout: {
@@ -60,8 +60,10 @@ defineOptions({
 const props = defineProps<{
     stats: DashboardStats;
     charts: DashboardCharts;
+    categories: Category[];
 }>();
 
+const quickCreateOpen = ref(false);
 const page = usePage();
 const { format } = useMoney();
 
@@ -147,11 +149,18 @@ const daysElapsed = computed(() =>
     <Head title="Inicio" />
 
     <div class="flex flex-1 flex-col gap-6 p-4">
-        <Heading
-            variant="small"
-            title="Inicio"
-            :description="`Hola, ${firstName}. Este es tu resumen de ${monthLabel.toLowerCase()}.`"
-        />
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <Heading
+                variant="small"
+                title="Inicio"
+                :description="`Hola, ${firstName}. Este es tu resumen de ${monthLabel.toLowerCase()}.`"
+            />
+
+            <Button @click="quickCreateOpen = true">
+                <Plus data-icon="inline-start" />
+                Nuevo gasto
+            </Button>
+        </div>
 
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Card>
@@ -337,11 +346,8 @@ const daysElapsed = computed(() =>
                     />
 
                     <div class="flex flex-wrap gap-2 pt-2">
-                        <Button as-child size="sm">
-                            <Link :href="expensesIndex()">
-                                Registrar gasto
-                                <ArrowRight data-icon="inline-end" />
-                            </Link>
+                        <Button size="sm" @click="quickCreateOpen = true">
+                            Registrar gasto
                         </Button>
                         <Button as-child variant="outline" size="sm">
                             <Link :href="budgetsIndex()">Ver presupuesto</Link>
@@ -353,5 +359,10 @@ const daysElapsed = computed(() =>
                 </CardContent>
             </Card>
         </div>
+
+        <ExpenseQuickCreate
+            v-model:open="quickCreateOpen"
+            :categories="categories"
+        />
     </div>
 </template>

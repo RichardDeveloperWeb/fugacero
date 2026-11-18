@@ -107,6 +107,7 @@ it('loads categories eagerly and scopes the list to the user', function () {
 it('redirects guests to the login page', function () {
     $this->get(route('expenses.index'))->assertRedirect(route('login'));
     $this->post(route('expenses.store'), [])->assertRedirect(route('login'));
+    $this->post(route('dashboard.expenses.store'), [])->assertRedirect(route('login'));
 });
 
 it('defaults the month filter to the current month', function () {
@@ -204,6 +205,54 @@ it('validates the expense payload', function () {
             'spent_at' => '10/11/2026',
         ])
         ->assertSessionHasErrors(['spent_at' => 'La fecha debe tener el formato AAAA-MM-DD.']);
+});
+
+it('validates quick expenses from the dashboard', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->post(route('dashboard.expenses.store'), [])
+        ->assertSessionHasErrors([
+            'description',
+            'amount',
+            'type',
+            'category_id' => 'La categoría es obligatoria.',
+            'spent_at',
+        ]);
+});
+
+it('creates an expense from the dashboard and stays on the dashboard', function () {
+    CarbonImmutable::setTestNow('2026-11-15 12:00:00');
+
+    $user = User::factory()->create();
+    $category = Category::factory()->default()->create();
+
+    $this->actingAs($user)
+        ->post(route('dashboard.expenses.store'), [
+            'description' => 'Café rápido',
+            'amount' => '45.50',
+            'type' => 'expense',
+            'category_id' => $category->id,
+            'spent_at' => '2026-11-05',
+        ])
+        ->assertRedirect(route('dashboard'))
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => 'Gasto creado.']);
+
+    $this->assertDatabaseHas('expenses', [
+        'user_id' => $user->id,
+        'category_id' => $category->id,
+        'description' => 'Café rápido',
+        'amount' => '45.50',
+        'type' => 'expense',
+        'spent_at' => '2026-11-05',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Dashboard')
+            ->where('stats.summary.spent', 45.5));
 });
 
 it('creates an expense with a shared category and preserves filters', function () {

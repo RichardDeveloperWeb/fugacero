@@ -39,11 +39,16 @@ class ExpenseController extends Controller
 
     public function store(StoreExpenseRequest $request): RedirectResponse
     {
-        $this->expenses->create($this->user($request), $request->validated());
-
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Gasto creado.']);
+        $this->createExpense($request);
 
         return to_route('expenses.index', $this->filters($request));
+    }
+
+    public function storeFromDashboard(StoreExpenseRequest $request): RedirectResponse
+    {
+        $this->createExpense($request);
+
+        return to_route('dashboard');
     }
 
     public function update(UpdateExpenseRequest $request, Expense $expense): RedirectResponse
@@ -64,6 +69,13 @@ class ExpenseController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Gasto eliminado.']);
 
         return to_route('expenses.index', $this->filters($request));
+    }
+
+    private function createExpense(StoreExpenseRequest $request): void
+    {
+        $this->expenses->create($this->user($request), $request->validated());
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Gasto creado.']);
     }
 
     /**
