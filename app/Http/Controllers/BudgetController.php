@@ -15,6 +15,8 @@ use Inertia\Response;
 
 class BudgetController extends Controller
 {
+    private const AUTOSAVE_HEADER = 'X-Budget-Autosave';
+
     public function __construct(private readonly BudgetService $budgets) {}
 
     public function index(Request $request): Response
@@ -31,7 +33,9 @@ class BudgetController extends Controller
     {
         $budget = $this->budgets->create($this->user($request), $request->validated());
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Presupuesto creado.']);
+        if (! $request->headers->has(self::AUTOSAVE_HEADER)) {
+            Inertia::flash('toast', ['type' => 'success', 'message' => 'Presupuesto creado.']);
+        }
 
         return to_route('budgets.index', ['month' => $this->monthFor($budget)]);
     }
@@ -40,7 +44,9 @@ class BudgetController extends Controller
     {
         $this->budgets->update($budget, $request->validated());
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Presupuesto actualizado.']);
+        if (! $request->headers->has(self::AUTOSAVE_HEADER)) {
+            Inertia::flash('toast', ['type' => 'success', 'message' => 'Presupuesto actualizado.']);
+        }
 
         return to_route('budgets.index', ['month' => $this->monthFor($budget)]);
     }

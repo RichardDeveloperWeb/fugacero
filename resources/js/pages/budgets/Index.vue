@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form, Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     ArrowLeft,
     ArrowRight,
@@ -17,7 +17,7 @@ import {
     Wallet,
     Zap,
 } from '@lucide/vue';
-import { computed, type Component } from 'vue';
+import { computed, ref, type Component } from 'vue';
 import BudgetController from '@/actions/App/Http/Controllers/BudgetController';
 import Heading from '@/components/Heading.vue';
 import {
@@ -87,7 +87,81 @@ const props = defineProps<{
     summary: BudgetSummary;
 }>();
 
+type AllocationField = {
+    category_id: number;
+    amount: string | number;
+};
+
+type BudgetForm = {
+    month: string;
+    amount: string | number;
+    allocations: AllocationField[];
+};
+
+type SaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
+
 const { format } = useMoney();
+
+const form = useForm<BudgetForm>({
+    month: props.month,
+    amount: props.budget?.amount ?? '',
+    allocations: props.categories.map((category) => ({
+        category_id: category.id,
+        amount: category.limit,
+    })),
+}).transform((data) => ({
+    ...(props.budget ? {} : { month: data.month }),
+    amount: data.amount,
+    allocations: data.allocations
+        .filter((allocation) => allocation.amount !== '')
+        .map((allocation) => ({
+            category_id: allocation.category_id,
+            amount: allocation.amount,
+        })),
+}));
+
+const saveStatus = ref<SaveStatus>('idle');
+let queuedAutosave: boolean | null = null;
+
+const saveMessage = computed(() => {
+    if (saveStatus.value === 'saving') {
+        return 'Guardando automáticamente…';
+    }
+
+    if (saveStatus.value === 'dirty') {
+        return 'Cambios sin guardar';
+    }
+
+    if (saveStatus.value === 'error') {
+        return 'No se pudo guardar. Revisa los campos marcados.';
+    }
+
+    if (saveStatus.value === 'saved') {
+        return 'Cambios guardados automáticamente';
+    }
+
+    return 'Los cambios se guardan al salir de cada campo';
+});
+
+const saveDotClass = computed(() => {
+    if (saveStatus.value === 'saving') {
+        return 'bg-amber-500 animate-pulse';
+    }
+
+    if (saveStatus.value === 'dirty') {
+        return 'bg-amber-500';
+    }
+
+    if (saveStatus.value === 'error') {
+        return 'bg-destructive';
+    }
+
+    if (saveStatus.value === 'saved') {
+        return 'bg-emerald-500';
+    }
+
+    return 'bg-muted-foreground';
+});
 
 const iconComponents: Record<string, Component> = {
     UtensilsCrossed,
@@ -157,6 +231,111 @@ function shiftMonth(delta: number): void {
     ).padStart(2, '0')}`;
 
     navigateToMonth(shifted);
+}
+
+function snapshotForm(): BudgetForm {
+    return {
+        month: form.month,
+        amount: form.amount,
+        allocations: form.allocations.map((allocation) => ({
+            category_id: allocation.category_id,
+            amount: allocation.amount,
+        })),
+    };
+}
+
+function formMatches(snapshot: BudgetForm): boolean {
+    return (
+        form.month === snapshot.month &&
+        form.amount === snapshot.amount &&
+        form.allocations.length === snapshot.allocations.length &&
+        form.allocations.every((allocation, index) => {
+            const saved = snapshot.allocations[index];
+
+            return (
+                saved !== undefined &&
+                saved.category_id === allocation.category_id &&
+                saved.amount === allocation.amount
+            );
+        })
+    );
+}
+
+function save(autosave = true): void {
+    if (form.processing) {
+        queuedAutosave = autosave;
+        saveStatus.value = 'dirty';
+
+        return;
+    }
+
+    if (!form.isDirty) {
+        return;
+    }
+
+    const submitted = snapshotForm();
+
+    saveStatus.value = 'saving';
+
+    const options = {
+        preserveScroll: true,
+        replace: true,
+        headers: autosave ? { 'X-Budget-Autosave': '1' } : undefined,
+        onSuccess: () => {
+            if (formMatches(submitted)) {
+                form.defaults();
+                saveStatus.value = 'saved';
+
+                return;
+            }
+
+            saveStatus.value = 'dirty';
+        },
+        onError: () => {
+            saveStatus.value = 'error';
+        },
+        onFinish: () => {
+            if (queuedAutosave === null && formMatches(submitted)) {
+                return;
+            }
+
+            const nextAutosave = queuedAutosave ?? true;
+
+            queuedAutosave = null;
+
+            if (form.isDirty) {
+                save(nextAutosave);
+            }
+        },
+    };
+
+    if (props.budget) {
+        form.patch(BudgetController.update.url(props.budget.id), options);
+
+        return;
+    }
+
+    form.post(BudgetController.store.url(), options);
+}
+
+function queueSave(): void {
+    if (!form.isDirty) {
+        return;
+    }
+
+    saveStatus.value = 'dirty';
+    save(true);
+}
+
+function onFieldBlur(event: FocusEvent): void {
+    if (
+        event.relatedTarget instanceof Element &&
+        event.relatedTarget.closest('[data-manual-save]')
+    ) {
+        return;
+    }
+
+    queueSave();
 }
 
 function deleteBudget(): void {
@@ -292,46 +471,29 @@ function deleteBudget(): void {
                     </EmptyContent>
                 </Empty>
 
-                <Form
-                    v-else
-                    :key="`${month}-${budget?.id ?? 'new'}`"
-                    v-bind="
-                        budget
-                            ? BudgetController.update.form(budget.id)
-                            : BudgetController.store.form()
-                    "
-                    class="grid gap-6"
-                    v-slot="{ errors, processing }"
-                >
-                    <input
-                        v-if="!budget"
-                        type="hidden"
-                        name="month"
-                        :value="month"
-                    />
-
+                <form v-else class="grid gap-6" @submit.prevent="save(false)">
                     <FieldGroup>
-                        <Field :data-invalid="!!errors.amount">
+                        <Field :data-invalid="!!form.errors.amount">
                             <FieldLabel for="budget-amount">
                                 Presupuesto del mes
                             </FieldLabel>
                             <Input
                                 id="budget-amount"
-                                name="amount"
+                                v-model="form.amount"
                                 type="number"
                                 step="0.01"
                                 min="0.01"
-                                :default-value="budget?.amount ?? ''"
                                 placeholder="Ej. 12000"
-                                :aria-invalid="!!errors.amount"
+                                :aria-invalid="!!form.errors.amount"
+                                @blur="onFieldBlur"
                                 v-focus
                             />
                             <FieldDescription>
                                 Monto total disponible para
                                 {{ monthLabel.toLowerCase() }}.
                             </FieldDescription>
-                            <FieldError v-if="errors.amount">
-                                {{ errors.amount }}
+                            <FieldError v-if="form.errors.amount">
+                                {{ form.errors.amount }}
                             </FieldError>
                         </Field>
                     </FieldGroup>
@@ -403,33 +565,30 @@ function deleteBudget(): void {
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        <input
-                                            type="hidden"
-                                            :name="`allocations[${index}].category_id`"
-                                            :value="category.id"
-                                        />
                                         <Input
+                                            v-model="
+                                                form.allocations[index].amount
+                                            "
                                             type="number"
                                             min="0"
                                             step="0.01"
-                                            :name="`allocations[${index}].amount`"
-                                            :default-value="category.limit"
                                             :aria-label="`Límite para ${category.name}`"
                                             :aria-invalid="
-                                                !!errors[
+                                                !!form.errors[
                                                     `allocations.${index}.amount`
                                                 ]
                                             "
+                                            @blur="onFieldBlur"
                                         />
                                         <FieldError
                                             v-if="
-                                                errors[
+                                                form.errors[
                                                     `allocations.${index}.amount`
                                                 ]
                                             "
                                         >
                                             {{
-                                                errors[
+                                                form.errors[
                                                     `allocations.${index}.amount`
                                                 ]
                                             }}
@@ -440,9 +599,7 @@ function deleteBudget(): void {
                         </Table>
                     </div>
 
-                    <div
-                        class="flex flex-wrap items-center justify-between gap-3"
-                    >
+                    <div class="flex flex-wrap gap-3">
                         <AlertDialog v-if="budget">
                             <AlertDialogTrigger as-child>
                                 <Button variant="destructive" type="button">
@@ -470,18 +627,38 @@ function deleteBudget(): void {
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
-                        <span v-else />
-
-                        <Button type="submit" :disabled="processing">
-                            {{
-                                processing
-                                    ? 'Guardando…'
-                                    : 'Guardar presupuesto'
-                            }}
-                        </Button>
                     </div>
-                </Form>
+                </form>
             </CardContent>
         </Card>
+
+        <div
+            v-if="categories.length > 0"
+            class="sticky bottom-4 z-20 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card/95 p-3 shadow-lg backdrop-blur"
+        >
+            <div
+                class="flex items-center gap-2 text-sm text-muted-foreground"
+                aria-live="polite"
+            >
+                <span class="size-2 rounded-full" :class="saveDotClass" />
+                <span>{{ saveMessage }}</span>
+            </div>
+
+            <Button
+                type="button"
+                data-manual-save
+                :disabled="form.processing || !form.isDirty"
+                @mousedown.prevent
+                @click="save(false)"
+            >
+                {{
+                    form.processing
+                        ? 'Guardando…'
+                        : saveStatus === 'error'
+                          ? 'Reintentar guardado'
+                          : 'Guardar ahora'
+                }}
+            </Button>
+        </div>
     </div>
 </template>

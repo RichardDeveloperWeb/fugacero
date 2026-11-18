@@ -300,6 +300,59 @@ it('updates the amount and synchronizes category allocations', function () {
     ]);
 });
 
+it('does not flash a toast when creating a budget through autosave', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->withHeader('X-Budget-Autosave', '1')
+        ->post(route('budgets.store'), [
+            'month' => '2026-11',
+            'amount' => '1000',
+        ])
+        ->assertRedirect(route('budgets.index', ['month' => '2026-11']))
+        ->assertInertiaFlashMissing('toast');
+
+    $this->assertDatabaseHas('budgets', [
+        'user_id' => $user->id,
+        'year' => 2026,
+        'month' => 11,
+        'amount' => '1000.00',
+    ]);
+});
+
+it('does not flash a toast when updating a budget through autosave', function () {
+    $user = User::factory()->create();
+    $budget = Budget::factory()->for($user)->create([
+        'year' => 2026,
+        'month' => 11,
+        'amount' => 1000,
+    ]);
+
+    $this->actingAs($user)
+        ->withHeader('X-Budget-Autosave', '1')
+        ->patch(route('budgets.update', $budget), ['amount' => '1500'])
+        ->assertRedirect(route('budgets.index', ['month' => '2026-11']))
+        ->assertInertiaFlashMissing('toast');
+
+    expect($budget->refresh()->amount)->toBe('1500.00');
+});
+
+it('flashes a toast for manual budget updates', function () {
+    $user = User::factory()->create();
+    $budget = Budget::factory()->for($user)->create([
+        'year' => 2026,
+        'month' => 11,
+        'amount' => 1000,
+    ]);
+
+    $this->actingAs($user)
+        ->patch(route('budgets.update', $budget), ['amount' => '1500'])
+        ->assertRedirect(route('budgets.index', ['month' => '2026-11']))
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => 'Presupuesto actualizado.']);
+
+    expect($budget->refresh()->amount)->toBe('1500.00');
+});
+
 it('forbids modifying budgets owned by another user', function () {
     $user = User::factory()->create();
     $budget = Budget::factory()->for(User::factory())->create();
