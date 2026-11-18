@@ -22,6 +22,7 @@ export type Budget = {
 
 export type BudgetCategoryBudget = {
     id: number;
+    user_id: number | null;
     name: string;
     color: string;
     icon: string | null;

@@ -30,8 +30,13 @@ class CategoryService
      */
     public function create(User $user, array $attributes): Category
     {
-        return $user->categories()->create([
+        $shared = (bool) data_get($attributes, 'shared', false);
+
+        unset($attributes['shared']);
+
+        return Category::query()->create([
             ...$attributes,
+            'user_id' => $shared ? null : $user->id,
             'is_default' => false,
         ]);
     }
@@ -41,7 +46,16 @@ class CategoryService
      */
     public function update(Category $category, array $attributes): Category
     {
-        $category->update($attributes);
+        $shared = array_key_exists('shared', $attributes)
+            ? (bool) $attributes['shared']
+            : $category->user_id === null;
+
+        unset($attributes['shared']);
+
+        $category->update([
+            ...$attributes,
+            'user_id' => $shared ? null : $category->user_id,
+        ]);
 
         return $category;
     }

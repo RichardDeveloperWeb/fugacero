@@ -31,6 +31,7 @@ trait CategoryValidationRules
             'name' => ['required', 'string', 'max:80', $uniqueName],
             'color' => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'icon' => ['nullable', 'string', 'max:50', 'regex:/^[A-Za-z]+$/'],
+            'shared' => ['sometimes', 'nullable', 'boolean'],
         ];
     }
 

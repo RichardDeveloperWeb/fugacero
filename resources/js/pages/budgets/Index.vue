@@ -532,7 +532,7 @@ function deleteBudget(): void {
                                             />
                                             <span>{{ category.name }}</span>
                                             <Badge
-                                                v-if="category.is_default"
+                                                v-if="category.user_id === null"
                                                 variant="secondary"
                                             >
                                                 Compartida

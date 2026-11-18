@@ -26,17 +26,29 @@ class CategoryPolicy
     /**
      * Determine whether the user can create categories.
      */
-    public function create(User $user): bool
+    public function create(User $user, bool $shared = false): bool
     {
-        return true;
+        return ! $shared || $user->can('categories.create');
     }
 
     /**
      * Determine whether the user can update the category.
      */
-    public function update(User $user, Category $category): bool
+    public function update(User $user, Category $category, bool $shared = false): bool
     {
-        return $category->user_id !== null && $category->user_id === $user->id;
+        if ($this->isProtected($category)) {
+            return false;
+        }
+
+        if ($category->user_id === null) {
+            return $user->can('categories.update');
+        }
+
+        if ($shared) {
+            return $category->user_id === $user->id && $user->can('categories.update');
+        }
+
+        return $category->user_id === $user->id;
     }
 
     /**
@@ -44,6 +56,19 @@ class CategoryPolicy
      */
     public function delete(User $user, Category $category): bool
     {
-        return $this->update($user, $category);
+        if ($this->isProtected($category)) {
+            return false;
+        }
+
+        if ($category->user_id === null) {
+            return $user->can('categories.delete');
+        }
+
+        return $category->user_id === $user->id;
+    }
+
+    private function isProtected(Category $category): bool
+    {
+        return $category->user_id === null && $category->name === Category::UNCATEGORIZED;
     }
 }

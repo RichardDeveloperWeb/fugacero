@@ -17,7 +17,15 @@ class UpdateCategoryRequest extends FormRequest
     {
         $category = $this->category();
 
-        return $category !== null && $this->user()?->can('update', $category) === true;
+        if ($category === null) {
+            return false;
+        }
+
+        $shared = $this->has('shared')
+            ? $this->boolean('shared')
+            : $category->user_id === null;
+
+        return $this->user()?->can('update', [$category, $shared]) === true;
     }
 
     /**

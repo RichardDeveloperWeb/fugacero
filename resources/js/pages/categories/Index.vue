@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form, Head, router } from '@inertiajs/vue3';
+import { Form, Head, router, usePage } from '@inertiajs/vue3';
 import {
     CarFront,
     Clapperboard,
@@ -15,7 +15,7 @@ import {
     UtensilsCrossed,
     Zap,
 } from '@lucide/vue';
-import { ref, type Component } from 'vue';
+import { computed, ref, type Component } from 'vue';
 import CategoryController from '@/actions/App/Http/Controllers/CategoryController';
 import Heading from '@/components/Heading.vue';
 import {
@@ -32,6 +32,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -68,7 +69,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { dashboard } from '@/routes';
 import { index as categoriesIndex } from '@/routes/categories';
-import type { Category } from '@/types';
+import type { Category, User } from '@/types';
 
 defineOptions({
     layout: {
@@ -82,6 +83,17 @@ defineOptions({
 defineProps<{
     categories: Category[];
 }>();
+
+const page = usePage<{ auth: { user: User } }>();
+const canCreateShared = computed(() =>
+    page.props.auth.user.permissions.includes('categories.create'),
+);
+const canUpdateShared = computed(() =>
+    page.props.auth.user.permissions.includes('categories.update'),
+);
+const canDeleteShared = computed(() =>
+    page.props.auth.user.permissions.includes('categories.delete'),
+);
 
 const palette = [
     '#f97316',
@@ -113,11 +125,26 @@ const dialogOpen = ref(false);
 const editing = ref<Category | null>(null);
 const color = ref(palette[0]);
 const icon = ref('');
+const shared = ref(false);
+
+const uncategorizedName = 'Sin categoría';
+
+const isShared = (category: Category): boolean => category.user_id === null;
+
+const isProtected = (category: Category): boolean =>
+    isShared(category) && category.name === uncategorizedName;
+
+const canEdit = (category: Category): boolean =>
+    !isProtected(category) && (!isShared(category) || canUpdateShared.value);
+
+const canRemove = (category: Category): boolean =>
+    !isProtected(category) && (!isShared(category) || canDeleteShared.value);
 
 function openCreate(): void {
     editing.value = null;
     color.value = palette[0];
     icon.value = '';
+    shared.value = false;
     dialogOpen.value = true;
 }
 
@@ -125,7 +152,12 @@ function openEdit(category: Category): void {
     editing.value = category;
     color.value = category.color;
     icon.value = category.icon ?? '';
+    shared.value = isShared(category);
     dialogOpen.value = true;
+}
+
+function onSharedChange(value: boolean | 'indeterminate'): void {
+    shared.value = value === true;
 }
 
 function deleteCategory(category: Category): void {
@@ -244,6 +276,43 @@ function deleteCategory(category: Category): void {
                                     errors.icon
                                 }}</FieldError>
                             </Field>
+
+                            <Field
+                                v-if="
+                                    editing ? canUpdateShared : canCreateShared
+                                "
+                            >
+                                <div class="flex items-start gap-3">
+                                    <Checkbox
+                                        id="category-shared"
+                                        :model-value="shared"
+                                        :disabled="
+                                            editing !== null &&
+                                            isShared(editing)
+                                        "
+                                        class="mt-0.5"
+                                        @update:model-value="onSharedChange"
+                                    />
+                                    <input
+                                        type="hidden"
+                                        name="shared"
+                                        :value="shared ? '1' : '0'"
+                                    />
+                                    <div class="grid gap-1">
+                                        <FieldLabel
+                                            for="category-shared"
+                                            class="leading-none"
+                                            >Compartida</FieldLabel
+                                        >
+                                        <FieldDescription>
+                                            Disponible para todos los usuarios.
+                                        </FieldDescription>
+                                    </div>
+                                </div>
+                                <FieldError v-if="errors.shared">{{
+                                    errors.shared
+                                }}</FieldError>
+                            </Field>
                         </FieldGroup>
 
                         <DialogFooter>
@@ -306,7 +375,7 @@ function deleteCategory(category: Category): void {
                             <TableCell>{{ category.expenses_count }}</TableCell>
                             <TableCell>
                                 <Badge
-                                    v-if="category.is_default"
+                                    v-if="isShared(category)"
                                     variant="secondary"
                                     >Compartida</Badge
                                 >
@@ -314,10 +383,13 @@ function deleteCategory(category: Category): void {
                             </TableCell>
                             <TableCell class="text-right">
                                 <div
-                                    v-if="!category.is_default"
+                                    v-if="
+                                        canEdit(category) || canRemove(category)
+                                    "
                                     class="flex justify-end gap-2"
                                 >
                                     <Button
+                                        v-if="canEdit(category)"
                                         variant="ghost"
                                         size="icon-sm"
                                         title="Editar"
@@ -329,7 +401,7 @@ function deleteCategory(category: Category): void {
                                         >
                                     </Button>
 
-                                    <AlertDialog>
+                                    <AlertDialog v-if="canRemove(category)">
                                         <AlertDialogTrigger as-child>
                                             <Button
                                                 variant="ghost"

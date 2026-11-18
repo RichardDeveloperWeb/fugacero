@@ -27,7 +27,7 @@ class BudgetService
             ->first();
 
         $categories = Category::query()
-            ->select(['id', 'name', 'color', 'icon', 'is_default'])
+            ->select(['id', 'user_id', 'name', 'color', 'icon', 'is_default'])
             ->where(function (Builder $query) use ($user): void {
                 $query->whereNull('user_id')
                     ->orWhere('user_id', $user->id);
@@ -53,6 +53,7 @@ class BudgetService
 
                 return [
                     'id' => $category->id,
+                    'user_id' => $category->user_id,
                     'name' => $category->name,
                     'color' => $category->color,
                     'icon' => $category->icon,
