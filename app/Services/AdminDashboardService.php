@@ -55,4 +55,39 @@ class AdminDashboardService
             'top_categories' => $topCategories,
         ];
     }
+
+    /**
+     * @return array{labels: array<int, string>, total_spent: array<int, float>}
+     */
+    public function monthlySpendingFor(int $months = 12): array
+    {
+        $end = now()->startOfMonth()->toImmutable();
+        $start = $end->subMonths($months - 1);
+
+        $rows = DB::table('expenses')
+            ->whereBetween('spent_at', [
+                $start->toDateString(),
+                $end->endOfMonth()->toDateString(),
+            ])
+            ->selectRaw("to_char(spent_at, 'YYYY-MM') as month, SUM(amount) as total")
+            ->groupByRaw('1')
+            ->orderByRaw('1')
+            ->get()
+            ->keyBy('month');
+
+        $labels = [];
+        $totalSpent = [];
+
+        for ($index = 0; $index < $months; $index++) {
+            $key = $start->addMonths($index)->format('Y-m');
+
+            $labels[] = $key;
+            $totalSpent[] = round((float) data_get($rows->get($key), 'total', 0), 2);
+        }
+
+        return [
+            'labels' => $labels,
+            'total_spent' => $totalSpent,
+        ];
+    }
 }

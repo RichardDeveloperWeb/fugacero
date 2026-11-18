@@ -80,7 +80,22 @@ test('the dashboard only shows the authenticated user current month stats', func
             ->where('stats.summary.spent', 200)
             ->where('stats.summary.available', 800)
             ->where('stats.top_category.name', 'Comida')
-            ->where('stats.top_category.total', 150));
+            ->where('stats.top_category.total', 150)
+            ->count('charts.monthly_spending.labels', 6)
+            ->where('charts.monthly_spending.labels.4', '2026-10')
+            ->where('charts.monthly_spending.spent.4', 900)
+            ->where('charts.monthly_spending.spent.5', 200)
+            ->where('charts.monthly_spending.budget.5', 1000)
+            ->where('charts.category_breakdown.categories.0.name', 'Comida')
+            ->where('charts.category_breakdown.categories.0.total', 150)
+            ->where('charts.category_breakdown.categories.0.expenses_count', 2)
+            ->where('charts.category_breakdown.categories.1.name', 'Transporte')
+            ->where('charts.category_breakdown.other_total', 0)
+            ->count('charts.monthly_pace.labels', 30)
+            ->where('charts.monthly_pace.cumulative.4', 200)
+            ->where('charts.monthly_pace.ideal.14', 500)
+            ->where('charts.monthly_pace.budget', 1000)
+            ->where('charts.monthly_pace.days_elapsed', 15));
 });
 
 test('the dashboard has no top category without expenses', function () {
@@ -95,5 +110,40 @@ test('the dashboard has no top category without expenses', function () {
             ->component('Dashboard')
             ->where('stats.summary.amount', 0)
             ->where('stats.summary.spent', 0)
-            ->where('stats.top_category', null));
+            ->where('stats.top_category', null)
+            ->where('charts.monthly_spending.spent', array_fill(0, 6, 0))
+            ->where('charts.monthly_spending.budget', array_fill(0, 6, 0))
+            ->where('charts.category_breakdown.categories', [])
+            ->where('charts.category_breakdown.other_total', 0)
+            ->where('charts.monthly_pace.budget', 0)
+            ->where('charts.monthly_pace.days_elapsed', 15));
+});
+
+test('the category chart keeps the top five and groups the rest', function () {
+    Date::setTestNow('2026-11-15 12:00:00');
+
+    $user = User::factory()->create();
+
+    foreach (range(1, 6) as $number) {
+        $category = Category::factory()->default()->create([
+            'name' => "Categoría {$number}",
+            'color' => '#3b82f6',
+        ]);
+
+        Expense::factory()->for($user)->inCategory($category)->create([
+            'amount' => $number * 100,
+            'spent_at' => '2026-11-10',
+        ]);
+    }
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->count('charts.category_breakdown.categories', 5)
+            ->where('charts.category_breakdown.categories.0.name', 'Categoría 6')
+            ->where('charts.category_breakdown.categories.0.total', 600)
+            ->where('charts.category_breakdown.categories.4.name', 'Categoría 2')
+            ->where('charts.category_breakdown.categories.4.total', 200)
+            ->where('charts.category_breakdown.other_total', 100));
 });

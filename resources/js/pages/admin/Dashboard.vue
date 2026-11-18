@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, Receipt, Shapes, Users, Wallet } from '@lucide/vue';
+import { ArrowLeft, Receipt, Users, Wallet } from '@lucide/vue';
 import { computed } from 'vue';
+import {
+    AdoptionChart,
+    AdminCategoryChart,
+    ChartCard,
+    MonthlyTrendChart,
+} from '@/components/charts';
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,20 +15,15 @@ import {
     CardContent,
     CardDescription,
     CardHeader,
-    CardTitle,
 } from '@/components/ui/card';
-import {
-    Empty,
-    EmptyDescription,
-    EmptyHeader,
-    EmptyMedia,
-    EmptyTitle,
-} from '@/components/ui/empty';
-import { Progress } from '@/components/ui/progress';
 import { useMoney } from '@/composables/useMoney';
 import { dashboard } from '@/routes';
 import { dashboard as adminDashboard } from '@/routes/admin';
-import type { AdminDashboardStats, AdminTopCategory } from '@/types';
+import type {
+    AdminDashboardCharts,
+    AdminDashboardStats,
+    AdminTopCategory,
+} from '@/types';
 
 defineOptions({
     layout: {
@@ -35,9 +36,14 @@ defineOptions({
 
 const props = defineProps<{
     stats: AdminDashboardStats;
+    charts: AdminDashboardCharts;
 }>();
 
 const { format } = useMoney();
+
+const hasMonthlySpending = computed(() =>
+    props.charts.monthly_spending.total_spent.some((value) => value > 0),
+);
 
 const hasTopCategories = computed(() => props.stats.top_categories.length > 0);
 
@@ -121,68 +127,78 @@ function shareFor(category: AdminTopCategory): number {
             </Card>
         </div>
 
-        <Card>
-            <CardHeader>
-                <CardTitle>Principales categorías</CardTitle>
-                <CardDescription>
-                    Ranking histórico de gasto en todas las cuentas.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Empty v-if="!hasTopCategories">
-                    <EmptyHeader>
-                        <EmptyMedia variant="icon"><Shapes /></EmptyMedia>
-                        <EmptyTitle>Sin gastos registrados</EmptyTitle>
-                        <EmptyDescription>
-                            Todavía no hay gastos en el sistema.
-                        </EmptyDescription>
-                    </EmptyHeader>
-                </Empty>
+        <div class="grid gap-4 lg:grid-cols-3">
+            <ChartCard
+                class="lg:col-span-2"
+                title="Evolución global del gasto"
+                description="Últimos doce meses en todas las cuentas."
+                :has-data="hasMonthlySpending"
+                empty-title="Sin gastos registrados"
+                empty-description="La tendencia global aparecerá cuando haya gastos."
+            >
+                <MonthlyTrendChart
+                    :labels="charts.monthly_spending.labels"
+                    :series="[
+                        {
+                            label: 'Gasto global',
+                            values: charts.monthly_spending.total_spent,
+                        },
+                    ]"
+                    :ariaLabel="'Evolución mensual global del gasto'"
+                />
+            </ChartCard>
 
-                <div v-else class="space-y-4">
+            <ChartCard
+                title="Adopción de usuarios"
+                description="Cuentas que ya registraron gastos."
+                :has-data="stats.users > 0"
+                empty-title="Sin usuarios"
+                empty-description="Todavía no hay cuentas registradas."
+            >
+                <AdoptionChart
+                    :users="stats.users"
+                    :users-with-expenses="stats.users_with_expenses"
+                    :ariaLabel="'Usuarios con gastos frente a usuarios sin gastos'"
+                />
+            </ChartCard>
+        </div>
+
+        <ChartCard
+            title="Principales categorías"
+            description="Ranking histórico de gasto en todas las cuentas."
+            :has-data="hasTopCategories"
+            empty-title="Sin gastos registrados"
+            empty-description="Todavía no hay gastos en el sistema."
+        >
+            <AdminCategoryChart
+                :categories="stats.top_categories"
+                :ariaLabel="'Principales categorías de gasto'"
+            />
+            <template #summary>
+                <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
                     <div
-                        v-for="(category, index) in stats.top_categories"
+                        v-for="category in stats.top_categories"
                         :key="category.id"
-                        class="space-y-2 rounded-lg border p-4"
+                        class="flex min-w-0 items-center justify-between gap-2 rounded-lg border p-2"
                     >
-                        <div
-                            class="flex flex-wrap items-center justify-between gap-3"
-                        >
-                            <div class="flex items-center gap-3">
-                                <span
-                                    class="w-5 text-sm text-muted-foreground tabular-nums"
-                                >
-                                    {{ index + 1 }}
-                                </span>
-                                <span
-                                    class="size-3 shrink-0 rounded-full"
-                                    :style="{ backgroundColor: category.color }"
-                                />
-                                <span class="font-medium">{{
-                                    category.name
-                                }}</span>
-                                <span class="text-xs text-muted-foreground">
-                                    {{ category.expenses_count }} gastos
-                                </span>
-                            </div>
-                            <div class="flex items-baseline gap-3">
-                                <span
-                                    class="text-xs text-muted-foreground tabular-nums"
-                                >
-                                    {{ shareFor(category) }}%
-                                </span>
-                                <span class="font-semibold tabular-nums">
-                                    {{ format(category.total) }}
-                                </span>
-                            </div>
+                        <div class="flex min-w-0 items-center gap-2">
+                            <span
+                                class="size-2.5 shrink-0 rounded-full"
+                                :style="{ backgroundColor: category.color }"
+                            />
+                            <span class="truncate text-sm">{{
+                                category.name
+                            }}</span>
                         </div>
-                        <Progress
-                            :model-value="shareFor(category)"
-                            :aria-label="`Participación de ${category.name}`"
-                        />
+                        <span
+                            class="shrink-0 text-xs text-muted-foreground tabular-nums"
+                        >
+                            {{ format(category.total) }} ·
+                            {{ shareFor(category) }}%
+                        </span>
                     </div>
                 </div>
-            </CardContent>
-        </Card>
+            </template>
+        </ChartCard>
     </div>
 </template>

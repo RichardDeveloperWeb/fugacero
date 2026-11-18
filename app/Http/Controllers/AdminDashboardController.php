@@ -14,6 +14,9 @@ class AdminDashboardController extends Controller
     {
         return Inertia::render('admin/Dashboard', [
             'stats' => $this->dashboards->summary(),
+            'charts' => [
+                'monthly_spending' => $this->dashboards->monthlySpendingFor(),
+            ],
         ]);
     }
 }

@@ -4,10 +4,13 @@ use App\Models\Category;
 use App\Models\Expense;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Date;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
+
+afterEach(fn () => Date::setTestNow());
 
 function adminDashboardUser(): User
 {
@@ -32,6 +35,8 @@ test('users without the admin role cannot visit the admin dashboard', function (
 });
 
 test('admins see global metrics and historical top categories', function () {
+    Date::setTestNow('2026-11-15 12:00:00');
+
     $admin = adminDashboardUser();
     $user = User::factory()->create();
     $other = User::factory()->create();
@@ -44,10 +49,22 @@ test('admins see global metrics and historical top categories', function () {
         'color' => '#3b82f6',
     ]);
 
-    Expense::factory()->for($admin)->inCategory($food)->create(['amount' => '100']);
-    Expense::factory()->for($user)->inCategory($food)->create(['amount' => '300']);
-    Expense::factory()->for($user)->inCategory($transport)->create(['amount' => '100']);
-    Expense::factory()->for($other)->inCategory($transport)->create(['amount' => '200']);
+    Expense::factory()->for($admin)->inCategory($food)->create([
+        'amount' => '100',
+        'spent_at' => '2026-11-01',
+    ]);
+    Expense::factory()->for($user)->inCategory($food)->create([
+        'amount' => '300',
+        'spent_at' => '2026-11-02',
+    ]);
+    Expense::factory()->for($user)->inCategory($transport)->create([
+        'amount' => '100',
+        'spent_at' => '2026-10-02',
+    ]);
+    Expense::factory()->for($other)->inCategory($transport)->create([
+        'amount' => '200',
+        'spent_at' => '2025-12-02',
+    ]);
 
     $this->actingAs($admin)
         ->get(route('admin.dashboard'))
@@ -63,10 +80,18 @@ test('admins see global metrics and historical top categories', function () {
             ->where('stats.top_categories.0.total', 400)
             ->where('stats.top_categories.0.expenses_count', 2)
             ->where('stats.top_categories.1.name', 'Transporte')
-            ->where('stats.top_categories.1.total', 300));
+            ->where('stats.top_categories.1.total', 300)
+            ->count('charts.monthly_spending.labels', 12)
+            ->where('charts.monthly_spending.labels.0', '2025-12')
+            ->where('charts.monthly_spending.labels.11', '2026-11')
+            ->where('charts.monthly_spending.total_spent.0', 200)
+            ->where('charts.monthly_spending.total_spent.10', 100)
+            ->where('charts.monthly_spending.total_spent.11', 400));
 });
 
 test('admins see empty top categories when there are no expenses', function () {
+    Date::setTestNow('2026-11-15 12:00:00');
+
     $admin = adminDashboardUser();
 
     $this->actingAs($admin)
@@ -78,5 +103,6 @@ test('admins see empty top categories when there are no expenses', function () {
             ->where('stats.users_with_expenses', 0)
             ->where('stats.total_spent', 0)
             ->where('stats.average_per_user', 0)
-            ->where('stats.top_categories', []));
+            ->where('stats.top_categories', [])
+            ->where('charts.monthly_spending.total_spent', array_fill(0, 12, 0)));
 });

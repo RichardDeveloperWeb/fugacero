@@ -14,8 +14,12 @@ class DashboardController extends Controller
 
     public function index(Request $request): Response
     {
+        $user = $this->user($request);
+        $month = now()->format('Y-m');
+
         return Inertia::render('Dashboard', [
-            'stats' => $this->dashboards->summaryFor($this->user($request)),
+            'stats' => $this->dashboards->summaryFor($user, $month),
+            'charts' => $this->dashboards->chartsFor($user, $month),
         ]);
     }
 

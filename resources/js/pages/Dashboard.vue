@@ -16,6 +16,12 @@ import {
     Zap,
 } from '@lucide/vue';
 import { computed, type Component } from 'vue';
+import {
+    CategoryBreakdownChart,
+    ChartCard,
+    MonthlyPaceChart,
+    MonthlyTrendChart,
+} from '@/components/charts';
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,7 +44,7 @@ import { dashboard } from '@/routes';
 import { index as budgetsIndex } from '@/routes/budgets';
 import { index as categoriesIndex } from '@/routes/categories';
 import { index as expensesIndex } from '@/routes/expenses';
-import type { DashboardStats } from '@/types';
+import type { DashboardCharts, DashboardStats } from '@/types';
 
 defineOptions({
     layout: {
@@ -53,6 +59,7 @@ defineOptions({
 
 const props = defineProps<{
     stats: DashboardStats;
+    charts: DashboardCharts;
 }>();
 
 const page = usePage();
@@ -102,6 +109,37 @@ const iconFor = (name: string | null): Component =>
 
 const usage = computed(() =>
     Math.min(100, Math.max(0, props.stats.summary.usage_percent)),
+);
+
+const hasMonthlySpending = computed(
+    () =>
+        props.charts.monthly_spending.spent.some((value) => value > 0) ||
+        props.charts.monthly_spending.budget.some((value) => value > 0),
+);
+
+const hasCategoryBreakdown = computed(
+    () =>
+        props.charts.category_breakdown.categories.length > 0 ||
+        props.charts.category_breakdown.other_total > 0,
+);
+
+const hasMonthlyPace = computed(
+    () =>
+        props.charts.monthly_pace.budget > 0 ||
+        props.charts.monthly_pace.cumulative.some((value) => value > 0),
+);
+
+const dailyIdeal = computed(
+    () =>
+        props.charts.monthly_pace.budget /
+        Math.max(1, props.charts.monthly_pace.labels.length),
+);
+
+const daysElapsed = computed(() =>
+    Math.min(
+        props.charts.monthly_pace.days_elapsed,
+        props.charts.monthly_pace.labels.length,
+    ),
 );
 </script>
 
@@ -158,6 +196,68 @@ const usage = computed(() =>
                     </p>
                 </CardContent>
             </Card>
+        </div>
+
+        <div class="grid gap-4 lg:grid-cols-3">
+            <ChartCard
+                class="lg:col-span-2"
+                title="Evolución del gasto"
+                description="Últimos seis meses comparados con tu presupuesto."
+                :has-data="hasMonthlySpending"
+                empty-title="Sin historial todavía"
+                empty-description="Registra gastos o un presupuesto para ver tu evolución."
+            >
+                <MonthlyTrendChart
+                    :labels="charts.monthly_spending.labels"
+                    :series="[
+                        {
+                            label: 'Gasto',
+                            values: charts.monthly_spending.spent,
+                        },
+                        {
+                            label: 'Presupuesto',
+                            values: charts.monthly_spending.budget,
+                        },
+                    ]"
+                    :ariaLabel="'Evolución mensual del gasto y el presupuesto'"
+                />
+            </ChartCard>
+
+            <ChartCard
+                title="Gastos por categoría"
+                :description="`Distribución de ${monthLabel.toLowerCase()}.`"
+                :has-data="hasCategoryBreakdown"
+                empty-title="Sin gastos este mes"
+                empty-description="Tus categorías aparecerán cuando registres un gasto."
+            >
+                <CategoryBreakdownChart
+                    :breakdown="charts.category_breakdown"
+                    :ariaLabel="'Gastos del mes por categoría'"
+                />
+            </ChartCard>
+
+            <ChartCard
+                class="lg:col-span-3"
+                title="Ritmo del mes"
+                :description="`¿Vas al paso de tu presupuesto en ${monthLabel.toLowerCase()}?`"
+                :has-data="hasMonthlyPace"
+                empty-title="Sin ritmo para mostrar"
+                empty-description="Define un presupuesto mensual para comparar tu avance."
+            >
+                <template #default>
+                    <MonthlyPaceChart
+                        :pace="charts.monthly_pace"
+                        :ariaLabel="'Gasto acumulado frente al ritmo ideal del presupuesto'"
+                    />
+                </template>
+                <template #summary>
+                    <p class="text-sm text-muted-foreground tabular-nums">
+                        Día {{ daysElapsed }} de
+                        {{ charts.monthly_pace.labels.length }} · Ritmo ideal
+                        {{ format(dailyIdeal) }} diarios
+                    </p>
+                </template>
+            </ChartCard>
         </div>
 
         <div class="grid gap-4 lg:grid-cols-2">
