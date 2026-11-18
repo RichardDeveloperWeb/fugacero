@@ -268,8 +268,7 @@ function deleteBudget(): void {
 
         <Card>
             <CardHeader>
-                <CardTitle>Presupuesto de {{ monthLabel }}</CardTitle
-                >en el
+                <CardTitle>Presupuesto de {{ monthLabel }}</CardTitle>
                 <CardDescription>
                     Los límites por categoría son informativos y pueden sumar
                     más del presupuesto global.
